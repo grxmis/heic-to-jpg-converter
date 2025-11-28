@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="el">
 <head>
@@ -46,8 +45,8 @@
         #file-names-list li {
             padding: 4px 0;
             border-bottom: 1px dashed #eee;
-            display: flex;
-            justify-content: space-between;
+            display: flex; /* Χρήση flexbox για τη στοίχιση */
+            justify-content: space-between; /* Το όνομα αριστερά, το κουμπί δεξιά */
             align-items: center;
         }
         #file-names-list li:last-child {
@@ -60,19 +59,29 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            line-height: 20px;
+            width: 24px; /* Μεγαλύτερο touch target */
+            height: 24px;
+            line-height: 24px;
             text-align: center;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px; 
             font-weight: bold;
             padding: 0;
             margin-left: 10px;
-            flex-shrink: 0; /* Αποτρέπει τη συρρίκνωση */
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .remove-file:hover {
             background-color: #c0392b;
+        }
+        .file-name-text {
+            /* Για να πιάνει τον υπόλοιπο χώρο */
+            flex-grow: 1; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Loading Overlay Styles (Spinner) */
@@ -113,6 +122,7 @@
             font-size: 0.9em;
             color: #34495e;
             margin-top: 5px;
+            font-weight: bold;
         }
         
     </style>
@@ -183,17 +193,22 @@
 
             currentFiles.forEach((file, index) => {
                 const listItem = document.createElement('li');
-                listItem.textContent = file.name;
+                
+                const fileNameText = document.createElement('span');
+                fileNameText.className = 'file-name-text';
+                fileNameText.textContent = file.name;
 
                 const removeButton = document.createElement('button');
-                removeButton.textContent = '-';
+                removeButton.textContent = '–'; // Χρησιμοποιούμε ενωτικό (en-dash) για καλύτερη εμφάνιση
                 removeButton.className = 'remove-file';
+                
                 // Προσθήκη event listener για αφαίρεση
                 removeButton.addEventListener('click', (e) => {
-                    e.preventDefault(); // Αποφυγή υποβολής φόρμας
+                    e.preventDefault(); 
                     removeFile(index);
                 });
 
+                listItem.appendChild(fileNameText);
                 listItem.appendChild(removeButton);
                 fileListElement.appendChild(listItem);
             });
@@ -201,34 +216,32 @@
         
         // Λειτουργία: Αφαιρεί ένα αρχείο από τη λίστα
         function removeFile(indexToRemove) {
-            // Δημιουργία νέας λίστας χωρίς το αρχείο
+            // 1. Δημιουργία νέας λίστας χωρίς το αρχείο
             currentFiles = currentFiles.filter((_, index) => index !== indexToRemove);
             
-            // Επαναφορά του file input (για να μπορεί ο χρήστης να προσθέσει ξανά)
-            // Αυτό είναι απαραίτητο επειδή το input.files είναι ReadOnly
+            // 2. Ενημέρωση του file input
             const dt = new DataTransfer();
             currentFiles.forEach(file => dt.items.add(file));
             fileInput.files = dt.files;
 
+            // 3. Επαναπροβολή της λίστας
             renderFileList();
         }
 
         // Event Listener: Όταν ο χρήστης επιλέγει αρχεία
         fileInput.addEventListener('change', (event) => {
-            const selectedFiles = Array.from(event.target.files);
+            const newlySelectedFiles = Array.from(event.target.files);
 
-            if (selectedFiles.length === 0) {
-                 // Αν ο χρήστης ακύρωσε την επιλογή
+            if (newlySelectedFiles.length === 0) {
                 currentFiles = [];
-            } else if (selectedFiles.length > FILE_LIMIT) {
-                alert(`Επιτρέπονται έως ${FILE_LIMIT} αρχεία τη φορά. Επιλέξατε ${selectedFiles.length}.`);
-                // Διατήρηση της παλιάς λίστας
-                // Καθαρίζουμε μόνο το file input για να μην υπάρχει σύγχυση
+            } else if (newlySelectedFiles.length > FILE_LIMIT) {
+                alert(`Επιτρέπονται έως ${FILE_LIMIT} αρχεία τη φορά. Επιλέξατε ${newlySelectedFiles.length}.`);
+                // Καθαρίζουμε το input για να μην υπάρχει σύγχυση
                 fileInput.value = ""; 
-                return;
+                currentFiles = []; // Καθαρίζουμε και την εσωτερική λίστα
             } else {
                 // Αποθήκευση των νέων, έγκυρων αρχείων
-                currentFiles = selectedFiles;
+                currentFiles = newlySelectedFiles;
             }
             
             renderFileList();
@@ -251,7 +264,8 @@
                 // Δημιουργία FormData από την τρέχουσα λίστα αρχείων (currentFiles)
                 const formData = new FormData();
                 currentFiles.forEach(file => {
-                    formData.append('heic_files', file);
+                    // Σιγουρευόμαστε ότι το όνομα του πεδίου ταιριάζει με αυτό του app.py
+                    formData.append('heic_files', file); 
                 });
 
                 const response = await fetch('/convert', {
@@ -270,16 +284,15 @@
                 downloadLink.href = downloadUrl; 
 
                 // Καθαρισμός και εμφάνιση μηνύματος ετοιμότητας
-                currentFiles = []; // Καθαρισμός εσωτερικής λίστας
-                fileInput.value = ""; // Καθαρισμός του input
-                fileListElement.innerHTML = '<li>Ετοιμο για Λήψη!</li>';
+                currentFiles = []; 
+                fileInput.value = ""; 
+                fileListElement.innerHTML = '<li>Η λίστα αρχείων είναι κενή, έτοιμη για νέα επιλογή.</li>';
                 
                 downloadArea.style.display = 'block';
 
             } catch (error) {
                 console.error('Σφάλμα:', error);
                 alert(`Αποτυχία Μετατροπής: ${error.message}. Δοκιμάστε ξανά.`);
-                // Σε περίπτωση σφάλματος, δείχνουμε ξανά την κενή λίστα
                 renderFileList();
                 
             } finally {
