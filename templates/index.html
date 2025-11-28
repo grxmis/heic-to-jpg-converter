@@ -36,6 +36,7 @@
             min-height: 50px;
             background-color: #f9f9f9;
             list-style: none;
+            padding-left: 20px; /* Για καλύτερη εμφάνιση λίστας */
         }
         #file-names-list li {
             padding: 4px 0;
@@ -84,7 +85,8 @@
 
     <div class="box">
         <h1>Μετατροπέας HEIC ➡ JPG</h1>
-        <form action="/convert" method="post" enctype="multipart/form-data" onsubmit="showLoading()">
+        
+        <form id="convertForm" enctype="multipart/form-data">
             
             <label for="file-upload" class="custom-file-upload">
                 ΕΠΙΛΟΓΗ ΑΡΧΕΙΩΝ HEIC
@@ -101,16 +103,20 @@
     </div>
 
     <script>
-        // Λειτουργία: Εμφάνιση ονομάτων αρχείων
+        const convertForm = document.getElementById('convertForm');
+        const fileInput = document.getElementById('file-upload');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const submitButton = document.getElementById('submit-button');
+
+        // 1. Εμφάνιση ονομάτων αρχείων
         function displayFileNames() {
-            const input = document.getElementById('file-upload');
             const list = document.getElementById('file-names-list');
             list.innerHTML = ''; 
 
-            if (input.files.length > 0) {
-                for (let i = 0; i < input.files.length; i++) {
+            if (fileInput.files.length > 0) {
+                for (let i = 0; i < fileInput.files.length; i++) {
                     const listItem = document.createElement('li');
-                    listItem.textContent = input.files[i].name;
+                    listItem.textContent = fileInput.files[i].name;
                     list.appendChild(listItem);
                 }
             } else {
@@ -118,19 +124,63 @@
             }
         }
         
-        // Λειτουργία: Εμφάνιση Progress Message (αντί για Progress Bar)
-        function showLoading() {
-            // Έλεγχος αν ο χρήστης έχει επιλέξει αρχεία πριν δείξει το loading
-            const input = document.getElementById('file-upload');
-            if (input.files.length === 0) {
+        // 2. Χειρισμός υποβολής με Fetch API
+        convertForm.addEventListener('submit', async function(event) {
+            // Αποτροπή της κανονικής υποβολής της φόρμας
+            event.preventDefault();
+
+            if (fileInput.files.length === 0) {
                 alert('Παρακαλώ επιλέξτε τουλάχιστον ένα αρχείο HEIC.');
-                return false; // Ακύρωση του submit
+                return;
             }
 
-            document.getElementById('loading-overlay').style.display = 'flex';
-            document.getElementById('submit-button').disabled = true;
-            return true; // Συνέχεια με το submit της φόρμας
-        }
+            // Εμφάνιση του μηνύματος loading
+            loadingOverlay.style.display = 'flex';
+            submitButton.disabled = true;
+
+            try {
+                // Δημιουργία FormData για την αποστολή των αρχείων
+                const formData = new FormData(convertForm);
+
+                // Αποστολή στο Flask endpoint
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // Έλεγχος για σφάλματα από τον server
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Σφάλμα μετατροπής: ${errorText}`);
+                }
+
+                // Λήψη του blob (του ZIP αρχείου)
+                const blob = await response.blob();
+                
+                // Δημιουργία προσωρινού συνδέσμου για τη λήψη
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = 'converted_images.zip'; // Το όνομα του αρχείου
+                document.body.appendChild(a);
+                a.click();
+                
+                // Απελευθέρωση του URL και αφαίρεση του στοιχείου
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+                
+                alert('Η μετατροπή ολοκληρώθηκε! Το αρχείο ZIP ξεκίνησε να κατεβαίνει.');
+
+            } catch (error) {
+                console.error('Σφάλμα:', error);
+                alert(`Αποτυχία Μετατροπής: ${error.message}. Δοκιμάστε ξανά ή με λιγότερα αρχεία.`);
+            } finally {
+                // Απόκρυψη του μηνύματος loading ανεξάρτητα από το αποτέλεσμα
+                loadingOverlay.style.display = 'none';
+                submitButton.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>
