@@ -18,13 +18,18 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
-        button { 
+        
+        /* Κοινό στυλ για όλα τα κουμπιά ενέργειας */
+        .action-button {
             background-color: #27ae60; color: white; border: none; 
             padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; 
             width: 100%;
             margin-top: 10px;
+            display: block; /* Για να πιάνει όλο το πλάτος */
+            text-decoration: none; /* Αν είναι link */
+            text-align: center;
         }
-        button:hover { background-color: #219150; }
+        .action-button:hover { background-color: #219150; }
         
         /* Στυλ για τα ονόματα αρχείων */
         #file-names-list {
@@ -46,7 +51,7 @@
             border-bottom: none;
         }
 
-        /* Στυλ για την "Progress Bar" - Loading Overlay */
+        /* Loading Overlay Styles (Spinner) */
         #loading-overlay {
             position: fixed;
             top: 0;
@@ -74,6 +79,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Το download button είναι κρυφό στην αρχή */
+        #download-area {
+            display: none;
+        }
+        
     </style>
 </head>
 <body>
@@ -98,8 +109,16 @@
                 <li>Δεν έχουν επιλεγεί αρχεία.</li>
             </ul>
             
-            <button type="submit" id="submit-button">Μετατροπή & Λήψη ZIP</button>
+            <button type="submit" id="submit-button" class="action-button">Μετατροπή & Λήψη ZIP</button>
         </form>
+        
+        <div id="download-area">
+            <p style="color: #27ae60; font-weight: bold;">✅ Η μετατροπή ολοκληρώθηκε!</p>
+            <a id="download-link" class="action-button" href="#" download="converted_images.zip" style="background-color: #3498db;">
+                ΠΑΤΗΣΤΕ ΕΔΩ ΓΙΑ ΛΗΨΗ (DOWNLOAD)
+            </a>
+        </div>
+        
     </div>
 
     <script>
@@ -108,10 +127,14 @@
         const loadingOverlay = document.getElementById('loading-overlay');
         const submitButton = document.getElementById('submit-button');
         const fileList = document.getElementById('file-names-list');
+        const downloadArea = document.getElementById('download-area');
+        const downloadLink = document.getElementById('download-link');
 
         function displayFileNames() {
+            // Κρύβει την περιοχή λήψης αν ο χρήστης επιλέξει νέα αρχεία
+            downloadArea.style.display = 'none'; 
+            
             fileList.innerHTML = ''; 
-
             if (fileInput.files.length > 0) {
                 for (let i = 0; i < fileInput.files.length; i++) {
                     const listItem = document.createElement('li');
@@ -131,8 +154,10 @@
                 return;
             }
 
+            // Εμφάνιση loading και απενεργοποίηση κουμπιού
             loadingOverlay.style.display = 'flex';
             submitButton.disabled = true;
+            downloadArea.style.display = 'none'; // Κρύβει τυχόν προηγούμενο κουμπί
 
             try {
                 const formData = new FormData(convertForm);
@@ -147,29 +172,30 @@
                     throw new Error(`Σφάλμα μετατροπής: ${errorText}`);
                 }
 
+                // Λήψη του Blob (του ZIP αρχείου)
                 const blob = await response.blob();
                 
+                // Δημιουργία προσωρινού URL για το Blob
                 const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = downloadUrl;
-                a.download = 'converted_images.zip';
-                document.body.appendChild(a);
-                a.click();
                 
-                window.URL.revokeObjectURL(downloadUrl);
-                document.body.removeChild(a);
-                
-                alert('Η μετατροπή ολοκληρώθηκε! Το αρχείο ZIP ξεκίνησε να κατεβαίνει.');
+                // Ενημέρωση του συνδέσμου λήψης
+                downloadLink.href = downloadUrl; 
 
-                // ΝΕΕΣ ΑΛΛΑΓΕΣ: Καθαρισμός της φόρμας και της λίστας
+                // Καθαρισμός της φόρμας και της λίστας
                 convertForm.reset();
-                fileList.innerHTML = '<li>Δεν έχουν επιλεγεί αρχεία.</li>';
+                fileList.innerHTML = '<li>Ετοιμο για Λήψη!</li>';
+                
+                // Εμφάνιση του κουμπιού λήψης
+                downloadArea.style.display = 'block';
 
             } catch (error) {
                 console.error('Σφάλμα:', error);
                 alert(`Αποτυχία Μετατροπής: ${error.message}. Δοκιμάστε ξανά ή με λιγότερα αρχεία.`);
+                // Επαναφορά λίστας σε περίπτωση σφάλματος
+                fileList.innerHTML = '<li>Δεν έχουν επιλεγεί αρχεία.</li>'; 
+                
             } finally {
+                // Απόκρυψη του loading overlay και ενεργοποίηση του submit button
                 loadingOverlay.style.display = 'none';
                 submitButton.disabled = false;
             }
